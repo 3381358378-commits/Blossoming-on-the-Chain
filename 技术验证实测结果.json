@@ -1,0 +1,221 @@
+{
+  "generated_at": "2026-08-26 20:04:41",
+  "metrics": [
+    {
+      "name": "游客托管钱包与元数据生成",
+      "value": {
+        "samples": 20,
+        "unique_wallets": 20,
+        "wallet_format_valid": true,
+        "ipfs_uri": "ipfs://Qmca3a13d962380482a45ada86447971f31b10ee5e3e7d61",
+        "ipfs_uri_format_valid": true
+      },
+      "unit": "地址/URI",
+      "status": "实测",
+      "meaning": "检验游客下单时能否生成合法托管地址，并为设计生成可引用的元数据 URI。",
+      "interpretation": "20 次生成均得到唯一且格式合法的地址，元数据 URI 也符合当前演示格式；这验证了托管与元数据入口，不等于真实 IPFS 网络已完成持久化。",
+      "evidence": "backend_python/BloomBackend.py: CustodialWalletService, IPFSService"
+    },
+    {
+      "name": "文化语义转译与动态算价",
+      "value": {
+        "samples": 100,
+        "min": 65.92,
+        "max": 72.7,
+        "example_message": "寓意【鸿运当头 (Fortune)】，兼具【坚韧不拔 (Resilience)】之美。",
+        "elapsed_ms": 0.224
+      },
+      "unit": "美元/毫秒",
+      "status": "实测",
+      "meaning": "检验设计参数是否能生成双语文化寓意并返回材质溢价后的价格。",
+      "interpretation": "结果证明业务函数可运行；价格区间存在随机波动，正式商业系统还应改为可审计的固定报价或记录报价版本。",
+      "evidence": "backend_python/BloomBackend.py: generate_cultural_msg, calculate_dynamic_price"
+    },
+    {
+      "name": "工匠信用优先与负载调度",
+      "value": {
+        "samples": 100,
+        "selected_ids": [
+          "A001",
+          "A004",
+          "A006"
+        ],
+        "max_selected_load_after": 46
+      },
+      "unit": "订单/次",
+      "status": "实测",
+      "meaning": "检验材质匹配、信用分排序和负载更新是否共同生效。",
+      "interpretation": "100 次模拟派单均能返回工匠并更新负载；由于前三名内随机抽取，结果是负载均衡策略的演示，不等同于生产环境吞吐能力。",
+      "evidence": "backend_python/BloomBackend.py: dispatch_order_to_artisan"
+    },
+    {
+      "name": "QC 差评扣分与反馈闭环",
+      "value": {
+        "rating": 2,
+        "punishment": 5,
+        "new_score": 95,
+        "punished": true
+      },
+      "unit": "分",
+      "status": "实测",
+      "meaning": "检验低于等于 2 星时是否追溯订单工匠并扣除 5 分。",
+      "interpretation": "本次实测触发了扣分和 punished=true，证明反馈接口到信用治理的闭环可执行。",
+      "evidence": "backend_python/BloomBackend.py: submit_feedback"
+    },
+    {
+      "name": "Node 不可用时的 Fallback 防崩",
+      "value": {
+        "returned_prefix": "pending-",
+        "is_pending_stub": true,
+        "pending_persisted": true,
+        "elapsed_ms": 2.332
+      },
+      "unit": "毫秒/状态",
+      "status": "实测",
+      "meaning": "检验 Node.js 确权服务中断时，订单是否返回 pending 存根而不是让请求崩溃。",
+      "interpretation": "本次模拟断链立即返回 pending- 存根且已持久化待确权记录，说明故障可被业务层捕获并保留补偿所需数据；自动重试消费者、幂等处理和补偿成功率仍需单独建设和压测。",
+      "evidence": "backend_python/BloomBackend.py: SmartContractService.proxy_mint"
+    },
+    {
+      "name": "订单文件持久化往返",
+      "value": {
+        "saved": 1,
+        "loaded": 1,
+        "same_order_id": true
+      },
+      "unit": "订单/布尔",
+      "status": "实测",
+      "meaning": "检验订单写入 JSON 文件后，进程内重新读取是否能恢复订单标识。",
+      "interpretation": "本次往返读取成功，说明原型具备基础持久化能力；JSON 文件不提供并发事务、损坏修复或多实例高可用保障。",
+      "evidence": "backend_python/BloomBackend.py: save_new_order, load_orders"
+    },
+    {
+      "name": "订单、反馈与管理接口完整性",
+      "value": {
+        "required": [
+          "/api/order",
+          "/api/feedback",
+          "/api/order/<order_id>",
+          "/api/admin/orders",
+          "/api/admin/clear_db"
+        ],
+        "found": [
+          "/api/admin/clear_db",
+          "/api/admin/orders",
+          "/api/feedback",
+          "/api/order",
+          "/api/order/<order_id>"
+        ],
+        "coverage": 1.0
+      },
+      "unit": "接口/比例",
+      "status": "静态检查",
+      "meaning": "检验下单、反馈、订单查询、管理查询和清库恢复等履约链路入口是否注册。",
+      "interpretation": "当前关键接口均已注册；接口存在不代表鉴权、并发、超时和生产可用性已经达标。",
+      "evidence": "backend_python/BloomBackend.py: Flask routes"
+    },
+    {
+      "name": "GLB 模型资源可用性",
+      "value": {
+        "exists": true,
+        "size_mb": 33.71,
+        "format": ".glb"
+      },
+      "unit": "MB",
+      "status": "静态检查",
+      "meaning": "检验 AR 和 3D 工坊依赖的模型文件是否存在，并为加载时长测试提供资源基线。",
+      "interpretation": "模型文件存在且约 33.71 MB；仅凭文件大小不能证明移动端加载小于 2 秒，仍需在指定设备和网络下测量。",
+      "evidence": "frontend/flower.glb"
+    },
+    {
+      "name": "WebAR/3D 能力组件完整性",
+      "value": {
+        "Three.js": true,
+        "GLTFLoader": true,
+        "MediaPipe Face Mesh": true,
+        "Head Occluder": true,
+        "HUD": true
+      },
+      "unit": "布尔",
+      "status": "静态检查",
+      "meaning": "检验项目是否包含 WebGL/GLB 加载、MediaPipe 面部网格、隐形遮挡体和 HUD 控制的实现入口。",
+      "interpretation": "所有关键实现入口均存在；这是代码能力确认，不是实际摄像头追踪帧率或遮挡准确率。",
+      "evidence": "frontend/vr_tryon.html"
+    },
+    {
+      "name": "前端参数到订单接口的链路入口",
+      "value": {
+        "buy_action": true,
+        "order_api": true,
+        "design_storage": true
+      },
+      "unit": "布尔",
+      "status": "静态检查",
+      "meaning": "检验定制参数是否有前端动作、订单接口和本地设计数据承接点。",
+      "interpretation": "入口存在，但真实端到端耗时、失败率和用户设备兼容性需在浏览器中执行。",
+      "evidence": "frontend/index.html"
+    },
+    {
+      "name": "智能合约部署",
+      "value": {
+        "contract_address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+        "elapsed_ms": 22
+      },
+      "unit": "毫秒/地址",
+      "status": "实测",
+      "meaning": "检验 CopyrightProof 合约能否在本地 Hardhat 网络部署并获得地址。",
+      "interpretation": "部署成功说明合约字节码和本地链环境可用；部署耗时不代表生产链部署耗时。",
+      "evidence": "middleware_node/scripts/verify_metrics.js"
+    },
+    {
+      "name": "链上确权写入与区块确认",
+      "value": {
+        "tx_hash": "0xce46d9c6a3f37fe9d50b2e1031225a2f22947e0e496772277e9802c9ccdf34f1",
+        "block_number": 2,
+        "gas_used": "141602",
+        "elapsed_ms": 11
+      },
+      "unit": "毫秒/Gas/区块",
+      "status": "实测",
+      "meaning": "检验 recordCopyright 是否完成交易提交、区块确认和 Gas 消耗记录。",
+      "interpretation": "收到回执并包含 Gas，说明本地确权闭环可执行；本地链确认时间不能替代真实网络 10-15 秒的声明。",
+      "evidence": "middleware_node/scripts/verify_metrics.js"
+    },
+    {
+      "name": "链上查询与数据一致性",
+      "value": {
+        "queried_work_hash": "verify-1787745881180",
+        "queried_creator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "timestamp": "1787745882",
+        "matches": true
+      },
+      "unit": "布尔/时间戳",
+      "status": "实测",
+      "meaning": "检验写入的数据能否通过 getCopyright 原样读取。",
+      "interpretation": "matches=true 证明写入和读取的数据一致，支持作品指纹可查询验证。",
+      "evidence": "middleware_node/scripts/verify_metrics.js"
+    },
+    {
+      "name": "版权确权事件发射",
+      "value": {
+        "emitted": true
+      },
+      "unit": "布尔",
+      "status": "实测",
+      "meaning": "检验确权成功后是否发出 CopyrightRecorded 事件，为中端监听和后台审计提供事件依据。",
+      "interpretation": "emitted=true 说明链上状态写入同时产生可监听事件；生产环境仍需验证事件监听断线后的补偿和幂等。",
+      "evidence": "middleware_node/scripts/verify_metrics.js"
+    },
+    {
+      "name": "重复作品哈希拒绝",
+      "value": {
+        "rejected": true
+      },
+      "unit": "布尔",
+      "status": "实测",
+      "meaning": "检验同一作品哈希能否被合约拒绝重复登记。",
+      "interpretation": "rejected=true 说明合约具备基础防重复确权约束。",
+      "evidence": "middleware_node/scripts/verify_metrics.js"
+    }
+  ]
+}

@@ -79,6 +79,18 @@ class SmartContractService:
         self.w3 = Web3()
         self.admin_account = self.w3.eth.account.create()
         self.contract_addr = "0xBloom_Smart_Contract_v1"
+        self.pending_file = os.path.join(os.path.dirname(__file__), "pending_mints.json")
+
+    def _save_pending(self, item):
+        pending = []
+        if os.path.exists(self.pending_file):
+            with open(self.pending_file, 'r', encoding='utf-8') as f:
+                pending = json.load(f)
+        pending.append(item)
+        temp_file = f"{self.pending_file}.tmp"
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(pending, f, ensure_ascii=False, indent=2)
+        os.replace(temp_file, self.pending_file)
 
     def proxy_mint(self, user_address, token_uri):
         print(f"⛽ [Gasless Minting] 平台管理员({self.admin_account.address[:6]}...) 正在代付 Gas 费...")
@@ -104,6 +116,13 @@ class SmartContractService:
             fallback_id = hashlib.sha256(
                 f"pending:{work_hash}:{time.time_ns()}".encode("utf-8")
             ).hexdigest()
+            self._save_pending({
+                "pending_id": f"pending-{fallback_id}",
+                "work_hash": work_hash,
+                "creator": user_address,
+                "token_uri": token_uri,
+                "created_at": int(time.time()),
+            })
             print(f"⚠️ [Smart Contract] Node.js 服务不可用，订单暂记为待确权: {error}")
             return f"pending-{fallback_id}"
 
@@ -157,7 +176,7 @@ def dispatch_order_to_artisan(design):
 # ==========================================
 # 4. 数据存储与路由
 # ==========================================
-DB_FILE = 'orders.json'
+DB_FILE = os.path.join(os.path.dirname(__file__), 'orders.json')
 
 
 def load_orders():
@@ -168,13 +187,18 @@ def load_orders():
 def save_new_order(order):
     orders = load_orders()
     orders.insert(0, order)
-    with open(DB_FILE, 'w', encoding='utf-8') as f:
-        json.dump(orders, f, ensure_ascii=False, indent=2)
+    _write_json_atomically(DB_FILE, orders)
 
 
 def save_all_orders(orders):
-    with open(DB_FILE, 'w', encoding='utf-8') as f:
-        json.dump(orders, f, ensure_ascii=False, indent=2)
+    _write_json_atomically(DB_FILE, orders)
+
+
+def _write_json_atomically(path, value):
+    temp_file = f"{path}.tmp"
+    with open(temp_file, 'w', encoding='utf-8') as f:
+        json.dump(value, f, ensure_ascii=False, indent=2)
+    os.replace(temp_file, path)
 
 
 @app.route('/')
@@ -217,7 +241,7 @@ def handle_order():
         "ipfs_link": ipfs_link,
         "artisan": artisan,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "status": "Minted",
+        "status": "Pending Confirmation" if tx_hash.startswith("pending-") else "Minted",
         "feedback": None,  # 新增：用于存储用户评价
         "custodial_address": real_owner_address if is_custodial else None
     }

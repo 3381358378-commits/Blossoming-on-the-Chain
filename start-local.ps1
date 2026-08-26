@@ -7,7 +7,10 @@ $frontendDir = Join-Path $projectRoot "frontend"
 $npmCache = Join-Path $env:TEMP "dachuang-npm-cache"
 
 function Start-ServiceWindow($title, $workingDirectory, $command) {
-    Start-Process powershell.exe -ArgumentList @("-NoExit","-NoProfile","-ExecutionPolicy","Bypass","-Command","cd `"$workingDirectory`"; `$Host.UI.RawUI.WindowTitle=`"$title`"; $command")
+    $safeWorkingDirectory = $workingDirectory.Replace("'", "''")
+    $safeTitle = $title.Replace("'", "''")
+    $childCommand = "Set-Location -LiteralPath '$safeWorkingDirectory'; `$Host.UI.RawUI.WindowTitle = '$safeTitle'; $command"
+    Start-Process powershell.exe -WorkingDirectory $workingDirectory -ArgumentList @("-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $childCommand)
     Start-Sleep -Milliseconds 500
 }
 
@@ -28,7 +31,7 @@ if ($portProcess) {
 
 # Step 2: Start Hardhat
 Write-Host "[2/6] Starting Hardhat local chain..." -ForegroundColor Cyan
-Start-ServiceWindow "Hardhat-8545" $nodeDir "npx hardhat node"
+Start-ServiceWindow "Hardhat-8545" $nodeDir "node node_modules/hardhat/internal/cli/cli.js node"
 
 Write-Host "  Waiting for RPC port 8545..." -ForegroundColor DarkGray
 for ($attempt = 1; $attempt -le 30; $attempt++) {

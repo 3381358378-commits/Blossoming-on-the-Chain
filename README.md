@@ -3,7 +3,7 @@
 ## 目录
 
 ```text
- dachuang/
+ Blossoming on the Chain/
  ├─ frontend/          静态前端、VR 页面与 flower.glb
  ├─ backend_python/    Flask 业务后端与订单数据
  ├─ middleware_node/   Node.js 区块链中端、合约与 Hardhat 配置
@@ -26,7 +26,7 @@
 在 PowerShell 中执行以下两条命令。脚本会自动启动 Hardhat、本地部署合约、更新 `.env`，并打开 Node、Python 和前端服务窗口：
 
 ```powershell
-cd D:\三创赛\dachuang
+cd 'D:\三创赛\Blossoming on the Chain'
 Set-ExecutionPolicy -Scope Process Bypass
 .\start-local.ps1
 ```
@@ -40,14 +40,14 @@ Set-ExecutionPolicy -Scope Process Bypass
 ### 0. 启动本地链并部署合约
 
 ```powershell
-cd D:\三创赛\dachuang\middleware_node
+cd 'D:\三创赛\Blossoming on the Chain\middleware_node'
 npx hardhat node
 ```
 
 保持该终端运行，再打开一个终端部署确权合约：
 
 ```powershell
-cd D:\三创赛\dachuang\middleware_node
+cd 'D:\三创赛\Blossoming on the Chain\middleware_node'
 npx hardhat run scripts/deploy.js --network localhost
 ```
 
@@ -56,7 +56,7 @@ npx hardhat run scripts/deploy.js --network localhost
 ### 1. 启动 Node.js 区块链中端
 
 ```powershell
-cd D:\三创赛\dachuang\middleware_node
+cd 'D:\三创赛\Blossoming on the Chain\middleware_node'
 npm install --legacy-peer-deps --cache "$env:TEMP\dachuang-npm-cache"
 npm start
 ```
@@ -66,7 +66,7 @@ npm start
 ### 2. 启动 Python 后端
 
 ```powershell
-cd D:\三创赛\dachuang\backend_python
+cd 'D:\三创赛\Blossoming on the Chain\backend_python'
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install flask flask-cors web3 requests
@@ -78,7 +78,7 @@ Python API：`http://localhost:5000`。
 ### 3. 启动前端静态服务
 
 ```powershell
-cd D:\三创赛\dachuang\frontend
+cd 'D:\三创赛\Blossoming on the Chain\frontend'
 python -m http.server 8080
 ```
 
