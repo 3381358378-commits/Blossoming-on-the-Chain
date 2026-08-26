@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Bloom Brain - 供应链监控中心</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body { background-color: #050505; color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 2px 20px 20px 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+        .title { font-size: 24px; font-weight: bold; color: #00E0FF; display: flex; align-items: center; gap: 10px; }
+        .subtitle { color: #888; font-size: 13px; margin-top: 2px; }
+
+        /* 布局微调：边界线左移 */
+        /* 左侧保持 1.2fr */
+        /* 中间从 1.25fr 减小到 1.15fr (卡片变窄) */
+        /* 右侧从 0.75fr 增加到 0.85fr (卡片变宽) */
+        .dashboard-grid { display: grid; grid-template-columns: 1.2fr 1.15fr 0.85fr; gap: 20px; height: 85vh; }
+
+        .card { background: #111; border: 1px solid #333; border-radius: 15px; padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
+        .card-title { font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #FFD700; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid #FFD700; padding-left: 10px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { text-align: left; color: #666; padding: 8px 0; border-bottom: 1px solid #333; }
+        td { padding: 8px 0; border-bottom: 1px solid #222; color: #ccc; }
+
+        .status-badge { padding: 2px 6px; border-radius: 4px; font-size: 9px; background: #333; color: #ccc; }
+
+        .refresh-btn { background: transparent; border: 1px solid #00E0FF; color: #00E0FF; padding: 4px 12px; border-radius: 20px; cursor: pointer; transition: 0.3s; font-size: 11px; }
+        .refresh-btn:hover { background: rgba(0, 224, 255, 0.1); }
+
+        #soul-terminal { flex: 1; overflow-y: auto; background: #000; padding: 12px; border-radius: 10px; border: 1px solid #1a1a1a; font-family: 'Courier New', monospace; font-size: 11px; }
+        .log-item { margin-bottom: 8px; line-height: 1.4; border-bottom: 1px solid #111; padding-bottom: 5px; }
+        .log-time { color: #555; margin-right: 5px; }
+        .log-tag { color: #00FF00; font-weight: bold; }
+
+        .qc-alert { color: #FF4C4C !important; font-weight: bold; animation: flash 1s infinite; }
+        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <div class="title">🧠 Bloom Brain Command Center</div>
+            <div class="subtitle">Cloud Supply Chain & Quality Control Monitor</div>
+        </div>
+        <div style="text-align: right;">
+            <div style="font-size: 22px; font-weight: bold; color: #00E0FF;" id="total-orders">0</div>
+            <div style="font-size: 11px; color: #666;">Global Orders</div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card">
+            <div class="card-title">
+                <span>🛰️ Real-time Production Stream</span>
+                <button class="refresh-btn" onclick="fetchData()">🔄 Refresh</button>
+            </div>
+            <div style="overflow-y: auto; flex: 1;">
+                <table id="order-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Artisan</th>
+                            <th>QC Status</th>
+                            <th>State</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📊 Artisan Credit & Load</div>
+            <div id="chart-container" style="width: 100%; height: 350px;"></div>
+            <div style="margin-top: auto; font-size: 10px; color: #555; line-height: 1.5; border-top: 1px solid #222; padding-top: 10px;">
+                <strong>QC Logic:</strong><br>
+                <span style="color:#00E0FF">Blue Bar</span> = High Credit Score (Good)<br>
+                <span style="color:#FF4C4C">Red Bar</span> = Low Credit Score (Quality Issue)
+            </div>
+        </div>
+
+        <div class="card" style="background: #080808;">
+            <div class="card-title" style="color: #00FF00; border-color: #00FF00;">
+                <span>✨ Soul & QC Monitor</span>
+                <button onclick="clearDB()" style="background:none; border:1px solid #FF4C4C; color:#FF4C4C; cursor:pointer; padding:2px 8px; border-radius:10px; font-size:10px;">Reset</button>
+            </div>
+            <div id="soul-terminal">
+                <div class="log-item" style="color:#444;">> [SYSTEM]: Monitoring Active...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const myChart = echarts.init(document.getElementById('chart-container'));
+        let lastOrderCount = 0;
+        let lastLogTime = "";
+
+        async function fetchData() {
+            try {
+                const res = await fetch('http://127.0.0.1:5000/api/admin/orders?t=' + new Date().getTime());
+                const orders = await res.json();
+
+                orders.forEach(o => {
+                    if (o.feedback && o.feedback.rating <= 2 && o.feedback.time > lastLogTime) {
+                        appendQCLog(o);
+                        lastLogTime = o.feedback.time;
+                    }
+                });
+
+                if (orders.length > lastOrderCount) {
+                    appendSoulLog(orders[0]);
+                    lastOrderCount = orders.length;
+                }
+
+                document.getElementById('total-orders').innerText = orders.length;
+                const tbody = document.querySelector('#order-table tbody');
+                tbody.innerHTML = '';
+
+                const artisanStats = {};
+
+                orders.forEach(order => {
+                    let aName = "Assigning...";
+                    let currentScore = 100;
+
+                    if(order.artisan) {
+                        aName = order.artisan.name.split('(')[0].trim();
+                        currentScore = order.artisan.credit_score || 100;
+                        if(!artisanStats[aName]) artisanStats[aName] = { load: 0, score: currentScore };
+                        artisanStats[aName].load += 1;
+                        artisanStats[aName].score = currentScore;
+                    }
+
+                    const qcStatus = order.feedback ? (order.feedback.rating <= 2 ? "⚠️ Issue" : "✅ Good") : "Pending";
+                    const statusColor = qcStatus.includes("Issue") ? "#FF4C4C" : "#ccc";
+
+                    const row = `<tr>
+                        <td style="font-family:monospace; color: #888;">${order.order_id.substring(6)}</td>
+                        <td style="color:#00E0FF;">${aName}</td>
+                        <td style="color:${statusColor}; font-weight:bold;">${qcStatus}</td>
+                        <td><span class="status-badge">${order.status}</span></td>
+                    </tr>`;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+
+                updateChart(artisanStats);
+
+            } catch (error) { console.error(error); }
+        }
+
+        function appendSoulLog(order) {
+            const terminal = document.getElementById('soul-terminal');
+            const time = new Date().toLocaleTimeString();
+            const logHtml = `<div class="log-item"><span class="log-time">[${time}]</span> <span class="log-tag">TX_INITIATED</span>: ${order.order_id}<br>>> Wallet: ${order.owner.substring(0,10)}... (Gasless)</div>`;
+            terminal.insertAdjacentHTML('afterbegin', logHtml);
+        }
+
+        function appendQCLog(order) {
+            const terminal = document.getElementById('soul-terminal');
+            const time = new Date().toLocaleTimeString();
+            const logHtml = `<div class="log-item" style="border: 1px solid #FF4C4C; background: rgba(255, 76, 76, 0.1);"><span class="log-time">[${time}]</span> <span class="qc-alert">⚠️ QC ALERT DETECTED!</span><br>>> Order: ${order.order_id}<br>>> Feedback: "${order.feedback.comment}" (${order.feedback.rating}★)<br>>> Artisan: ${order.artisan.name}<br>>> Action: <span style="color:#FF4C4C">Credit Score Deducted (-5)</span></div>`;
+            terminal.insertAdjacentHTML('afterbegin', logHtml);
+        }
+
+        async function clearDB() {
+            if(confirm("Reset database?")) {
+                await fetch('http://127.0.0.1:5000/api/admin/clear_db', {method: 'POST'});
+                document.getElementById('soul-terminal').innerHTML = '<div class="log-item">> System Reset.</div>';
+                lastOrderCount = 0;
+                fetchData();
+            }
+        }
+
+        function updateChart(stats) {
+            const names = Object.keys(stats);
+            const loads = names.map(n => stats[n].load);
+            const scores = names.map(n => stats[n].score);
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', formatter: (p) => `${names[p[0].dataIndex]}<br>Load: ${loads[p[0].dataIndex]}<br>Credit Score: ${scores[p[0].dataIndex]}` },
+                // 调整右侧内边距到 10%，防止 Score 文字因为卡片变窄而被切掉
+                grid: { top: '15%', bottom: '15%', left: '8%', right: '10%' },
+                xAxis: { type: 'category', data: names, axisLabel: { color: '#666', fontSize: 10, rotate: 30 } },
+                yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#666' }, splitLine: { lineStyle: { color: '#222' } } },
+                series: [{
+                    name: 'Workload', data: loads, type: 'bar', barWidth: '40%',
+                    itemStyle: {
+                        color: (p) => scores[p.dataIndex] < 98 ? '#FF4C4C' : new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#00E0FF'},{offset:1,color:'#627EEA'}]),
+                        borderRadius: [4, 4, 0, 0]
+                    },
+                    label: { show: true, position: 'top', color: '#fff', formatter: (p) => `Score: ${scores[p.dataIndex]}`, fontSize: 9 }
+                }]
+            };
+            myChart.setOption(option);
+        }
+
+        fetchData();
+        setInterval(fetchData, 3000);
+        window.addEventListener('resize', () => { myChart.resize(); });
+    </script>
+</body>
+</html>
